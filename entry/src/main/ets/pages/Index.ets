@@ -1,10 +1,22 @@
-// src/main/ets/pages/Index.ets (最终正确版)
+// src/main/ets/pages/Index.ets (最终Swiper版)
 
-import { WeekView } from './WeekView'
+import { WeeklyCourseViewModel } from '../viewmodel/WeeklyCourseViewModel'
+import { WeekView } from './WeekView' // 导入我们新建的WeekView组件
+import router from '@ohos.router'
+
+// 定义一个类型来持有每个页面的ViewModel
+type WeekViewModelMap = Map<number, WeeklyCourseViewModel>;
 
 @Component
 export struct Index {
-  @State currentWeek: number = 15;
+  // ★★★ 核心：用一个Map来存储每一周对应的ViewModel ★★★
+  @State weekViewModels: WeekViewModelMap = new Map();
+
+  // 当前周数
+  @State currentWeek: number = 16; // 默认显示第16周
+
+  // 添加周数选择对话框的状态
+  @State showWeekPicker: boolean = false;
 
   private swiperController: SwiperController = new SwiperController();
   private readonly totalWeeks: number = 20;
@@ -12,44 +24,183 @@ export struct Index {
   private weekNumbers: number[] = [];
 
   aboutToAppear() {
+    // 初始化周数数组
     if (this.weekNumbers.length === 0) {
       for (let i = this.startWeek; i <= this.totalWeeks; i++) {
         this.weekNumbers.push(i);
       }
     }
+    // 确保当前周的ViewModel已创建
+    this.getOrCreateViewModelForWeek(this.currentWeek);
+  }
+
+  // 获取或创建指定周的ViewModel
+  getOrCreateViewModelForWeek(week: number): WeeklyCourseViewModel {
+    if (!this.weekViewModels.has(week)) {
+      this.weekViewModels.set(week, new WeeklyCourseViewModel());
+    }
+    return this.weekViewModels.get(week)!;
+  }
+
+  goToPreviousWeek(): void { if (this.currentWeek > this.startWeek) this.swiperController.showPrevious(); }
+  goToNextWeek(): void { if (this.currentWeek < this.totalWeeks) this.swiperController.showNext(); }
+
+  // 添加跳转到指定周的方法
+  jumpToWeek(targetWeek: number): void {
+    if (targetWeek >= this.startWeek && targetWeek <= this.totalWeeks) {
+      // 先更新currentWeek状态
+      this.currentWeek = targetWeek;
+      // 确保目标周的ViewModel已创建
+      this.getOrCreateViewModelForWeek(targetWeek);
+
+      // 使用changeIndex方法跳转到指定页面
+      const targetIndex = targetWeek - this.startWeek;
+      this.swiperController.changeIndex(targetIndex);
+    }
+  }
+
+  // 打开周数选择器
+  openWeekPicker(): void {
+    this.showWeekPicker = true;
   }
 
   build() {
     Column() {
       // 顶部导航栏
-      Row() {
-        Text('<').fontSize(20).fontWeight(FontWeight.Bold).width(40).height(40).textAlign(TextAlign.Center)
-          .onClick(() => { if (this.currentWeek > this.startWeek) this.swiperController.showPrevious() })
-          .opacity(this.currentWeek > this.startWeek ? 1 : 0.3)
+      this.TopNavBar()
 
-        Text(`第${this.currentWeek}周`).layoutWeight(1).textAlign(TextAlign.Center).fontSize(18).fontWeight(FontWeight.Medium)
-
-        Text('⇌').fontSize(20).fontWeight(FontWeight.Bold).width(40).height(40).textAlign(TextAlign.Center)
-          .onClick(() => { /* 弹出周数选择 */ })
-      }
-      .width('100%').height(56).padding({ left: 16, right: 16 }).backgroundColor(Color.White)
-
-      // Swiper容器
+      // 主内容区：Swiper
       Swiper(this.swiperController) {
         ForEach(this.weekNumbers, (week: number) => {
-          // ★★★ 在这里创建WeekView，并通过构造函数传递必要的参数 ★★★
-          WeekView({ week: week, currentSwiperWeek: this.currentWeek })
+          // ★★★ 为每个Swiper页面传入它自己的ViewModel ★★★
+          WeekView({
+            vm: this.getOrCreateViewModelForWeek(week),
+            week: week
+          })
         }, (week: number) => week.toString())
       }
       .index(this.currentWeek - this.startWeek)
       .indicator(false)
       .loop(false)
-      .cachedCount(2) // 开启预加载
+      // ★★★ 关键：设置缓存数量，实现预加载 ★★★
+      .cachedCount(1)
       .onChange((index: number) => {
         this.currentWeek = index + this.startWeek;
+        // 切换时，确保目标页面的ViewModel已创建，以便aboutToAppear能加载数据
+        this.getOrCreateViewModelForWeek(this.currentWeek);
       })
       .layoutWeight(1)
+
+      // 周数选择器弹窗
+      if (this.showWeekPicker) {
+        this.WeekPickerDialog()
+      }
     }
     .width('100%').height('100%').backgroundColor('#F5F5F5')
+  }
+
+  @Builder
+  TopNavBar() {
+    Row() {
+      Text('<')
+        .fontSize(20)
+        .fontWeight(FontWeight.Bold)
+        .onClick(() => this.goToPreviousWeek())
+        .opacity(this.currentWeek > this.startWeek ? 1 : 0.3)
+        .padding(8)
+
+      Text(`第${this.currentWeek}周`)
+        .layoutWeight(1)
+        .textAlign(TextAlign.Center)
+        .fontSize(16)
+        .fontWeight(FontWeight.Medium)
+
+      Text('⇌')
+        .fontSize(18)
+        .onClick(() => this.openWeekPicker())
+        .padding(8)
+    }
+    .width('100%')
+    .height(56)
+    .padding({ left: 16, right: 16 })
+    .backgroundColor(Color.White)
+    .justifyContent(FlexAlign.SpaceBetween)
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  WeekPickerDialog() {
+    Column() {
+      // 遮罩层
+      Column()
+        .width('100%')
+        .height('100%')
+        .backgroundColor('rgba(0, 0, 0, 0.4)')
+        .onClick(() => {
+          this.showWeekPicker = false;
+        })
+
+      // 底部弹窗内容
+      Column() {
+        // 顶部指示条
+        Column()
+          .width(36)
+          .height(4)
+          .backgroundColor('#D1D1D6')
+          .borderRadius(2)
+          .margin({ top: 8, bottom: 16 })
+
+        // 标题
+        Text('选择周数')
+          .fontSize(20)
+          .fontWeight(FontWeight.Medium)
+          .margin({ bottom: 20 })
+
+        // 滚轮选择器
+        TextPicker({
+          range: this.weekNumbers.map(week => `第${week}周`),
+          selected: this.currentWeek - this.startWeek
+        })
+          .onChange((value: string | string[], index: number | number[]) => {
+            // 处理单选情况
+            if (typeof index === 'number') {
+              const selectedWeek = this.weekNumbers[index];
+              this.jumpToWeek(selectedWeek);
+            }
+          })
+          .backgroundColor(Color.White)
+          .height(200)
+          .margin({ bottom: 20 })
+
+        // 确定按钮
+        Button('确定')
+          .width('100%')
+          .height(48)
+          .backgroundColor('#007AFF')
+          .fontColor(Color.White)
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .borderRadius(12)
+          .onClick(() => {
+            this.showWeekPicker = false;
+          })
+          .margin({ bottom: 20 })
+      }
+      .backgroundColor(Color.White)
+      .borderRadius({ topLeft: 16, topRight: 16 })
+      .padding({ left: 20, right: 20 })
+      .alignItems(HorizontalAlign.Center)
+      .position({ x: 0, y: '100%' })
+      .translate({ x: 0, y: '-100%' })
+      .animation({
+        duration: 300,
+        curve: Curve.EaseOut
+      })
+    }
+    .width('100%')
+    .height('100%')
+    .position({ x: 0, y: 0 })
+    .zIndex(999)
+    .justifyContent(FlexAlign.End)
   }
 }
