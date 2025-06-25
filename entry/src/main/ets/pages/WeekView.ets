@@ -1,15 +1,15 @@
-// src/main/ets/pages/WeekView.ets (Flex布局版本)
-
 import { WeeklyCourseViewModel } from '../viewmodel/WeeklyCourseViewModel'
 import { CourseInfo, WeekInfo, WeeklyCourseVO } from '../model/WeeklyCourseVO'
 import { TimeSlot } from '../model/TimeSlot'
-import router from '@ohos.router' // 添加路由导入
+import router from '@ohos.router'
+import { AppSettings } from '../common/AppSettings'; // ★★★ 1. 导入 AppSettings
+
 
 @Component
 export struct WeekView {
   @ObjectLink vm: WeeklyCourseViewModel;
   private week: number = 0;
-  @State refreshFlag: number = 0; // 添加刷新标志
+  @State refreshFlag: number = 0;
 
   private readonly courseCellHeight: number = 80;
   private timeSlots: TimeSlot[] = [
@@ -25,52 +25,24 @@ export struct WeekView {
       this.vm.currentWeek = this.week;
       this.vm.loadWeeklyCourses();
     }
-    
-    // 监听页面返回参数，判断是否需要刷新
+
     const params = router.getParams() as Record<string, Object>;
     if (params && params['shouldRefresh']) {
       this.vm.loadWeeklyCourses();
     }
   }
 
-  // 添加页面显示时的刷新逻辑
   onPageShow(): void {
     console.log('WeekView页面显示，刷新数据');
     this.forceRefresh();
   }
 
-  // 强制刷新方法
   private forceRefresh() {
     this.refreshFlag++;
     this.vm.loadWeeklyCourses();
   }
 
-  build() {
-    Stack() { // 使用Stack来叠加悬浮按钮
-      Column() {
-        // 添加隐藏的刷新标志文本，触发UI更新
-        Text(`${this.refreshFlag}`).width(0).height(0).opacity(0)
-        
-        if (this.vm.isLoading) {
-          LoadingProgress().width(30).height(30).margin({ top: 100 })
-        } else if (this.vm.errorMessage) {
-          Text(this.vm.errorMessage).fontColor(Color.Red)
-        } else if (this.vm.weeklyCourseData) {
-          this.RealWeekView(this.vm.weeklyCourseData)
-        } else {
-          Text(`第${this.week}周无课程`).fontColor(Color.Gray)
-        }
-      }.width('100%').height('100%').backgroundColor(Color.White)
-
-      // 悬浮添加按钮
-      this.FloatingAddButton()
-    }
-    .width('100%')
-    .height('100%')
-    .alignContent(Alignment.BottomEnd)
-  }
-
-  // 悬浮添加按钮
+  // FloatingAddButton 方法是我们需要修改的地方
   @Builder
   FloatingAddButton() {
     Button() {
@@ -91,43 +63,53 @@ export struct WeekView {
       offsetY: 2
     })
     .onClick(() => {
-      // 跳转到添加课程页面，传递当前周数和刷新回调
+      // ★★★ 3. 在跳转前，从 AppStorage 获取当前学期 ID ★★★
+      const currentSemesterId = AppStorage.Get<number>(AppSettings.CURRENT_SEMESTER_ID_KEY);
+
       router.pushUrl({
         url: 'pages/AddCourse',
         params: {
           week: this.week,
-          semesterId: this.vm.semesterId,
-          // 传递一个标识，让AddCourse页面知道需要通知刷新
+          semesterId: currentSemesterId, // ★★★ 4. 使用从 AppStorage 获取的 ID ★★★
           needRefresh: true
         }
-      }).then(() => {
-        console.log('成功跳转到添加课程页面');
       }).catch((err: Error) => {
         console.error('Navigation failed:', err);
-        // 显示错误提示
-        AlertDialog.show({
-          title: '跳转失败',
-          message: `无法打开添加课程页面: ${err.message}`,
-          confirm: {
-            value: '确定',
-            action: () => {
-              console.log('用户确认错误提示');
-            }
-          }
-        });
       });
     })
     .position({ x: '100%', y: '100%' })
-    .translate({ x: -72, y: -72 }) // 向左上偏移，留出边距
+    .translate({ x: -72, y: -72 })
   }
 
-  // ★★★ 使用传统的行列布局方式 ★★★
+  // build 及其他所有 @Builder 方法和函数保持不变
+  build() {
+    Stack() {
+      Column() {
+        Text(`${this.refreshFlag}`).width(0).height(0).opacity(0)
+
+        if (this.vm.isLoading) {
+          LoadingProgress().width(30).height(30).margin({ top: 100 })
+        } else if (this.vm.errorMessage) {
+          Text(this.vm.errorMessage).fontColor(Color.Red)
+        } else if (this.vm.weeklyCourseData) {
+          this.RealWeekView(this.vm.weeklyCourseData)
+        } else {
+          Text(`第${this.week}周无课程`).fontColor(Color.Gray)
+        }
+      }.width('100%').height('100%').backgroundColor(Color.White)
+
+      this.FloatingAddButton()
+    }
+    .width('100%')
+    .height('100%')
+    .alignContent(Alignment.BottomEnd)
+  }
+
   @Builder
   RealWeekView(data: WeeklyCourseVO) {
     Column() {
-      // 星期表头
       Row() {
-        Column().width(60) // 左侧时间列宽度
+        Column().width(60)
         ForEach(data.weekInfo, (day: WeekInfo) => {
           Column({ space: 2 }) {
             Text(day.dayName).fontSize(14)
@@ -136,12 +118,10 @@ export struct WeekView {
         }, (day: WeekInfo) => day.dayOfWeek.toString())
       }.height(50).padding({ left: 4, right: 4 }).backgroundColor('#F8F8F8')
 
-      // ★★★ 修复：统一的课程表主体，优化滚动显示 ★★★
       Scroll() {
         Column({ space: 0 }) {
           ForEach(this.timeSlots, (slot: TimeSlot, timeIndex: number) => {
             Row({ space: 0 }) {
-              // 左侧时间信息
               Column() {
                 Text(slot.label).fontSize(14).fontWeight(FontWeight.Bold)
                 Text(slot.startTime).fontSize(10).fontColor(Color.Gray)
@@ -152,7 +132,6 @@ export struct WeekView {
               .justifyContent(FlexAlign.Center)
               .border({ width: 0.5, color: '#F0F0F0' })
 
-              // ★★★ 修复：课程格子行 - 使用正确的映射 ★★★
               ForEach(data.weekInfo, (day: WeekInfo) => {
                 this.TimeSlotCell(data.courses, timeIndex + 1, day.dayOfWeek)
               }, (day: WeekInfo) => day.dayOfWeek.toString())
@@ -160,24 +139,21 @@ export struct WeekView {
           }, (slot: TimeSlot) => slot.label)
         }
       }
-      .scrollable(ScrollDirection.Vertical)  // 确保垂直方向可滚动
-      .scrollBar(BarState.Auto)              // 自动显示滚动条
-      .edgeEffect(EdgeEffect.Spring)         // 添加滚动边缘效果
-      .layoutWeight(1)                       // 让滚动区域占据剩余的所有空间
+      .scrollable(ScrollDirection.Vertical)
+      .scrollBar(BarState.Auto)
+      .edgeEffect(EdgeEffect.Spring)
+      .layoutWeight(1)
     }
   }
 
-  // ★★★ 修复 TimeSlotCell 方法 ★★★
   @Builder
   TimeSlotCell(courses: CourseInfo[], period: number, dayOfWeek: number) {
     Stack() {
-      // 背景格子
       Column()
         .width('100%')
         .height(this.courseCellHeight)
         .border({ width: 0.5, color: '#F0F0F0' })
 
-      // ★★★ 修复：只在课程开始节次显示课程卡片 ★★★
       ForEach(this.getCoursesStartingAtSlot(courses, period, dayOfWeek), (course: CourseInfo) => {
         this.CourseCard(course)
       }, (course: CourseInfo) => course.scheduleId.toString())
@@ -186,7 +162,6 @@ export struct WeekView {
     .alignContent(Alignment.TopStart)
   }
 
-  // ★★★ 修复：获取在指定时间段开始的课程 ★★★
   getCoursesStartingAtSlot(courses: CourseInfo[], period: number, dayOfWeek: number): CourseInfo[] {
     console.log(`查找课程: period=${period}, dayOfWeek=${dayOfWeek}`);
     const filteredCourses = courses.filter((course: CourseInfo) => {
@@ -199,13 +174,11 @@ export struct WeekView {
     return filteredCourses;
   }
 
-  // ★★★ 添加：计算课程卡片高度 ★★★
   calculateCourseHeight(course: CourseInfo): number {
     const spanPeriods = course.endPeriod - course.startPeriod + 1;
     return spanPeriods * this.courseCellHeight;
   }
 
-  // ★★★ 修复：课程卡片 ★★★
   @Builder
   CourseCard(course: CourseInfo) {
     Column({ space: 2 }) {

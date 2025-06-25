@@ -16,13 +16,15 @@ struct Settings {
   // 在学期选择器中临时存储用户选择的学期ID，待“确定”后才正式应用
   @State tempSelectedSemesterId: number = 0;
 
+
+
   // 注入 SettingsViewModel 实例
   @Consume('settingsVM') private settingsVM: SettingsViewModel;
 
   // ★★★ 核心修改：使用 @StorageLink 直接双向绑定到 AppStorage ★★★
   // 当UI修改这个变量时，AppStorage中的值会立即改变，反之亦然。
   // 这使得 MainPage 可以监听到此处的变更。
-  @StorageLink(AppSettings.ADVANCE_MINUTES_KEY) advanceMinutes: number = 5; // 提供一个默认值，仅在首次创建时生效
+  @StorageLink(AppSettings.ADVANCE_MINUTES_KEY) advanceMinutes: number = 10; // 提供一个默认值，仅在首次创建时生效
 
   /**
    * 组件即将显示时调用。
