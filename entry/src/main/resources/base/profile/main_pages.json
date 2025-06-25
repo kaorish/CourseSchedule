@@ -1,6 +1,8 @@
 {
   "src": [
     "pages/MainPage",
-    "pages/AddCourse"
+    "pages/AddCourse",
+    "pages/CourseManage",
+    "pages/EditCourse"
   ]
 }
