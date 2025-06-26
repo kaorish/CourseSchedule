@@ -25,15 +25,10 @@ export class SettingsViewModel {
         throw new Error(response.msg || '获取学期列表失败');
       }
       this.semesters = response.data;
-
       let activeId = AppStorage.Get<number>(AppSettings.CURRENT_SEMESTER_ID_KEY);
-
-      // 最终修正：为 find 方法的参数 s 显式声明类型为 Semester
-      // 这将解决 API 16 上的类型推断错误
       let targetSemester = this.semesters.find((s: Semester) => s.id === activeId);
 
       if (!targetSemester) {
-        // 同样为这里的 find 方法参数 s 显式声明类型
         targetSemester = this.semesters.find((s: Semester) => s.id === 1) ?? this.semesters[0];
       }
 
@@ -44,14 +39,12 @@ export class SettingsViewModel {
       }
     } catch (err) {
       this.errorMessage = `初始化设置失败: ${(err as Error).message}`;
-      console.error(this.errorMessage);
     } finally {
       this.isLoading = false;
     }
   }
 
   async setCurrentSemester(semesterId: number): Promise<void> {
-    // 最终修正：为 find 方法的参数 s 显式声明类型
     const selectedSemester = this.semesters.find((s: Semester) => s.id === semesterId);
     if (selectedSemester) {
       this.currentSemesterId = selectedSemester.id;
@@ -63,12 +56,14 @@ export class SettingsViewModel {
       AppStorage.Set(AppSettings.CURRENT_SEMESTER_TOTAL_WEEKS_KEY, selectedSemester.totalWeeks);
 
       this.calculateCurrentWeek();
-      console.log(`[SettingsViewModel] Semester changed and saved: ID=${selectedSemester.id}`);
-    } else {
-      console.warn(`[SettingsViewModel] Semester with ID ${semesterId} not found.`);
     }
   }
 
+  /**
+   * 新增：更新学期详情的核心方法 (此方法在您当前版本中缺失)
+   * @param semesterId 要更新的学期ID
+   * @param updateData 包含新开始日期或新总周数的对象
+   */
   async updateSemesterDetails(semesterId: number, updateData: Partial<SemesterUpdateDTO>): Promise<void> {
     if (!semesterId || semesterId === -1) {
       promptAction.showToast({ message: '无效的学期ID' });
@@ -76,15 +71,16 @@ export class SettingsViewModel {
     }
     this.isLoading = true;
     try {
-      // 最终修正：为 find 方法的参数 s 显式声明类型
       const currentSemester = this.semesters.find((s: Semester) => s.id === semesterId);
       if (!currentSemester) {
         throw new Error("未找到当前学期");
       }
+
       const updateDTO: SemesterUpdateDTO = {
         startDate: updateData.startDate ?? currentSemester.startDate,
         totalWeeks: updateData.totalWeeks ?? currentSemester.totalWeeks,
       };
+
       await httpUtil.put<object>(`/semesters/${semesterId}`, updateDTO);
       await this.init();
       promptAction.showToast({ message: '学期信息更新成功' });
@@ -110,14 +106,15 @@ export class SettingsViewModel {
       const diff = now.getTime() - startDate.getTime();
       if (diff < 0) {
         this.currentWeekNumber = 1;
-        return;
+      } else {
+        const diffDays = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const week = Math.floor(diffDays / 7) + 1;
+        this.currentWeekNumber = week;
       }
-      const diffDays = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const week = Math.floor(diffDays / 7) + 1;
-      this.currentWeekNumber = week;
+      AppStorage.Set(AppSettings.CALCULATED_CURRENT_WEEK_KEY, this.currentWeekNumber);
     } catch (e) {
-      console.error("Error calculating current week: ", e);
       this.currentWeekNumber = 1;
+      AppStorage.Set(AppSettings.CALCULATED_CURRENT_WEEK_KEY, 1);
     }
   }
 }

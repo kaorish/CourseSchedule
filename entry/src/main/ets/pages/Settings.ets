@@ -5,18 +5,26 @@ import { Semester } from '../model/Semester';
 import { AppSettings } from '../common/AppSettings';
 
 /**
+ * 为“通知提前时间”选项定义一个明确的类
+ */
+class TimeOption {
+  label: string;
+  value: number;
+
+  constructor(label: string, value: number) {
+    this.label = label;
+    this.value = value;
+  }
+}
+
+/**
  * “设置”组件
  */
 @Component
 export struct Settings {
-  @State showTimePicker: boolean = false;
-  @State showSemesterPicker: boolean = false;
-  @State tempSelectedSemesterId: number = 0;
-
   @Consume('settingsVM') private settingsVM: SettingsViewModel;
   @StorageLink(AppSettings.ADVANCE_MINUTES_KEY) advanceMinutes: number = 10;
 
-  // 最终修正：使用 for 循环来创建数组，彻底避免类型推断问题
   private totalWeeksOptions: string[] = ((): string[] => {
     const options: string[] = [];
     for (let i = 1; i <= 25; i++) {
@@ -25,14 +33,41 @@ export struct Settings {
     return options;
   })();
 
+  private advanceTimeOptions: TimeOption[] = [
+    new TimeOption('5 分钟', 5),
+    new TimeOption('10 分钟', 10),
+    new TimeOption('15 分钟', 15),
+    new TimeOption('30 分钟', 30),
+  ];
+
   aboutToAppear() {
     this.settingsVM.init();
+  }
+
+  displaySemesterPicker(): void {
+    if (!this.settingsVM.semesters || this.settingsVM.semesters.length === 0) {
+      promptAction.showToast({ message: '暂无学期数据' });
+      return;
+    }
+    const semesterNames = this.settingsVM.semesters.map((s: Semester) => s.name);
+    const currentIndex = this.settingsVM.semesters.findIndex((s: Semester) => s.id === this.settingsVM.currentSemesterId);
+    TextPickerDialog.show({
+      range: semesterNames,
+      selected: currentIndex >= 0 ? currentIndex : 0,
+      onAccept: (value?: TextPickerResult) => {
+        if (value && typeof value.index === 'number') {
+          const selectedSemester = this.settingsVM.semesters[value.index];
+          if (selectedSemester && selectedSemester.id !== this.settingsVM.currentSemesterId) {
+            this.settingsVM.setCurrentSemester(selectedSemester.id);
+          }
+        }
+      }
+    });
   }
 
   displayDatePicker(): void {
     const currentSelectedDate = new Date(this.settingsVM.startDate);
     const selectedDate = isNaN(currentSelectedDate.getTime()) ? new Date() : currentSelectedDate;
-
     DatePickerDialog.show({
       start: new Date('2020-01-01'),
       end: new Date('2030-12-31'),
@@ -44,9 +79,6 @@ export struct Settings {
           const formattedDate = `${value.year}-${month}-${day}`;
           this.settingsVM.updateSemesterDetails(this.settingsVM.currentSemesterId, { startDate: formattedDate });
         }
-      },
-      onCancel: () => {
-        console.info('Date picker dialog was cancelled.');
       }
     });
   }
@@ -60,66 +92,48 @@ export struct Settings {
           const selectedWeeks = parseInt(value.value.split(' ')[0]);
           this.settingsVM.updateSemesterDetails(this.settingsVM.currentSemesterId, { totalWeeks: selectedWeeks });
         }
-      },
-      onCancel: () => {
-        console.info('Total weeks picker dialog was cancelled.');
       }
     });
   }
 
-  @Builder
-  SemesterPickerDialog() {
-    Column() {
-      Text('选择学期').fontSize(20).fontWeight(FontWeight.Bold).margin({ bottom: 20 });
-      Scroll() {
-        Column() {
-          ForEach(this.settingsVM.semesters, (semester: Semester) => {
-            Row() {
-              Text(semester.name).fontSize(16).layoutWeight(1);
-              Radio({ value: semester.id.toString(), group: 'semesterGroup' })
-                .checked(this.tempSelectedSemesterId === semester.id)
-                .onChange(() => { this.tempSelectedSemesterId = semester.id; });
-            }
-            .width('100%').padding({ top: 10, bottom: 10 })
-            .onClick(() => { this.tempSelectedSemesterId = semester.id; });
-          }, (item: Semester) => item.id.toString())
+  displayTimePicker(): void {
+    const timeLabels = this.advanceTimeOptions.map((opt: TimeOption) => opt.label);
+    const currentIndex = this.advanceTimeOptions.findIndex((opt: TimeOption) => opt.value === this.advanceMinutes);
+    TextPickerDialog.show({
+      range: timeLabels,
+      selected: currentIndex >= 0 ? currentIndex : 1,
+      onAccept: (value?: TextPickerResult) => {
+        if (value && typeof value.index === 'number') {
+          this.advanceMinutes = this.advanceTimeOptions[value.index].value;
+          promptAction.showToast({ message: '通知设置已更新' });
         }
       }
-      .height(200).margin({ bottom: 20 });
-      Row({ space: 10 }) {
-        Button('取消').onClick(() => { this.showSemesterPicker = false; }).backgroundColor('#f0f0f0').fontColor('#666666').layoutWeight(1);
-        Button('确定').onClick(() => {
-          this.showSemesterPicker = false;
-          if (this.tempSelectedSemesterId !== 0 && this.tempSelectedSemesterId !== this.settingsVM.currentSemesterId) {
-            this.settingsVM.setCurrentSemester(this.tempSelectedSemesterId);
-          }
-        }).layoutWeight(1);
-      }.width('100%')
-    }
-    .width('80%').padding(20).backgroundColor(Color.White).borderRadius(12);
+    });
   }
 
+  /**
+   * 可点击的设置项构建器
+   */
   @Builder
-  createTimeOption(minutes: number) {
-    Row() {
-      Text(`${minutes} 分钟`).fontSize(16).layoutWeight(1);
-      Radio({ value: minutes.toString(), group: 'timeGroup' })
-        .checked(this.advanceMinutes === minutes)
-        .onChange(() => { this.advanceMinutes = minutes; });
-    }.width('100%');
-  }
-
-  @Builder
-  SettingItem(title: string, value: string, onClick: () => void, showArrow: boolean = true) {
+  ClickableSettingItem(title: string, onClick: () => void) {
     Row() {
       Text(title).fontSize(18).layoutWeight(1);
-      Text(value).fontSize(16).fontColor('#666666').margin({ right: 10 });
-      if (showArrow) {
-        Text('>').fontSize(16).fontColor('#666666');
-      }
+      Text('>').fontSize(16).fontColor('#666666');
     }
     .width('90%').padding(15).backgroundColor(Color.White).borderRadius(12).margin({ top: 10 })
     .onClick(onClick);
+  }
+
+  /**
+   * 只读的设置项构建器
+   */
+  @Builder
+  ReadOnlySettingItem(title: string, value: string) {
+    Row() {
+      Text(title).fontSize(18).layoutWeight(1);
+      Text(value).fontSize(16).fontColor('#666666');
+    }
+    .width('90%').padding(15).backgroundColor(Color.White).borderRadius(12).margin({ top: 10 });
   }
 
   build() {
@@ -145,24 +159,16 @@ export struct Settings {
 
       Scroll() {
         Column({ space: 10 }) {
-          this.SettingItem('课程管理', '编辑、删除课程信息', () => { router.pushUrl({ url: 'pages/CourseManage' }); });
+          // 使用新的构建器，不再传递 value
+          this.ClickableSettingItem('课程管理', () => { router.pushUrl({ url: 'pages/CourseManage' }); });
 
           Divider().width('90%').height(1).color('#E0E0E0').margin({ top: 5, bottom: 5 });
 
-          this.SettingItem('切换学期', this.settingsVM.semesters.find((s: Semester) => s.id === this.settingsVM.currentSemesterId)?.name ?? '加载中...', () => {
-            this.tempSelectedSemesterId = this.settingsVM.currentSemesterId;
-            this.showSemesterPicker = true;
-          });
+          this.ClickableSettingItem('切换学期', () => { this.displaySemesterPicker(); });
+          this.ClickableSettingItem('设置学期开始日期', () => { this.displayDatePicker(); });
+          this.ClickableSettingItem('设置学期总周数', () => { this.displayTotalWeeksPicker(); });
 
-          this.SettingItem('设置学期开始日期', this.settingsVM.startDate, () => {
-            this.displayDatePicker();
-          });
-
-          this.SettingItem('设置学期总周数', `${this.settingsVM.totalWeeks} 周`, () => {
-            this.displayTotalWeeksPicker();
-          });
-
-          this.SettingItem('当前的周数', `第 ${this.settingsVM.currentWeekNumber} 周`, () => {}, false);
+          this.ReadOnlySettingItem('当前的周数', `第 ${this.settingsVM.currentWeekNumber} 周`);
 
           Row() {
             Text('是否显示周末').fontSize(18).layoutWeight(1);
@@ -176,44 +182,11 @@ export struct Settings {
               .onChange((isOn: boolean) => { this.settingsVM.showNonCurrentWeekCourses = isOn; });
           }.width('90%').padding(15).backgroundColor(Color.White).borderRadius(12).margin({ top: 10 });
 
-          this.SettingItem('通知提前分钟', `${this.advanceMinutes} 分钟`, () => {
-            this.showTimePicker = true;
-          });
+          this.ClickableSettingItem('通知提前分钟', () => { this.displayTimePicker(); });
         }
         .width('100%').alignItems(HorizontalAlign.Center).padding({ top: 20, bottom: 20 });
       }
       .layoutWeight(1);
-
-      if (this.showSemesterPicker) {
-        Column() {
-          this.SemesterPickerDialog();
-        }
-        .width('100%').height('100%').backgroundColor('rgba(0,0,0,0.4)')
-        .justifyContent(FlexAlign.Center).zIndex(20);
-      }
-
-      if (this.showTimePicker) {
-        Column() {
-          Column() {
-            Text('选择通知提前时间').fontSize(20).fontWeight(FontWeight.Bold).margin({ bottom: 20 });
-            Column({ space: 10 }) {
-              this.createTimeOption(5);
-              this.createTimeOption(10);
-              this.createTimeOption(15);
-              this.createTimeOption(30);
-            }
-            Row({space:10}) {
-              Button('取消').onClick(() => { this.showTimePicker = false; }).backgroundColor('#f0f0f0').fontColor('#666666').layoutWeight(1);
-              Button('确定').onClick(() => {
-                this.showTimePicker = false;
-                promptAction.showToast({ message: '通知设置已更新', duration: 1000 });
-              }).layoutWeight(1);
-            }.width('100%').margin({ top: 20 });
-          }.width('80%').padding(20).backgroundColor(Color.White).borderRadius(12);
-        }
-        .position({ x: 0, y: 0 }).width('100%').height('100%').zIndex(20)
-        .justifyContent(FlexAlign.Center).backgroundColor('rgba(0,0,0,0.7)');
-      }
     }
     .width('100%').height('100%').backgroundColor('#f5f5f5');
   }
