@@ -4,20 +4,14 @@ import { SemesterUpdateDTO } from '../model/SemesterUpdateDTO';
 import promptAction from '@ohos.promptAction';
 import { AppSettings } from '../common/AppSettings';
 
-
 @Observed
 export class SettingsViewModel {
   semesters: Semester[] = [];
-
-  // 这些属性将通过 AppStorage 加载，并由 @Observed 驱动UI更新
   currentSemesterId: number = -1;
   startDate: string = '加载中...';
   totalWeeks: number = 0;
-
   isLoading: boolean = false;
   errorMessage: string = '';
-
-  // 其他属性保持不变
   currentWeekNumber: number = 1;
   showWeekend: boolean = true;
   showNonCurrentWeekCourses: boolean = false;
@@ -26,42 +20,28 @@ export class SettingsViewModel {
     this.isLoading = true;
     this.errorMessage = '';
     try {
-      // 1. 从网络获取所有可用学期的列表
       const response = await httpUtil.get<Semester[]>('/semesters');
       if (!response.status) {
         throw new Error(response.msg || '获取学期列表失败');
       }
       this.semesters = response.data;
-      console.log(`[SettingsViewModel] Fetched ${this.semesters.length} semesters.`);
 
-      // 2. 从 AppStorage 获取当前激活的学期ID
       let activeId = AppStorage.Get<number>(AppSettings.CURRENT_SEMESTER_ID_KEY);
-      console.log(`[SettingsViewModel] Found stored semester ID: ${activeId}`);
 
-      // 3. 确定最终要使用的学期
-      //    - 检查存储的ID是否有效（即是否存在于刚获取的学期列表中）
-      let targetSemester = this.semesters.find(s => s.id === activeId);
+      // 最终修正：为 find 方法的参数 s 显式声明类型为 Semester
+      // 这将解决 API 16 上的类型推断错误
+      let targetSemester = this.semesters.find((s: Semester) => s.id === activeId);
 
-      //    - 如果存储的ID无效（比如刚安装应用，或者该学期已被删除）
       if (!targetSemester) {
-        console.log(`[SettingsViewModel] Stored semester ID ${activeId} is invalid or not found. Finding default.`);
-        // 则使用ID为1的学期作为备用默认值
-        targetSemester = this.semesters.find(s => s.id === 1);
-        // 如果连ID为1的学期都没有，就用列表的第一个
-        if (!targetSemester && this.semesters.length > 0) {
-          targetSemester = this.semesters[0];
-        }
+        // 同样为这里的 find 方法参数 s 显式声明类型
+        targetSemester = this.semesters.find((s: Semester) => s.id === 1) ?? this.semesters[0];
       }
 
-      // 4. 如果找到了一个确切的学期，就用它的信息更新状态和本地存储
       if (targetSemester) {
-        console.log(`[SettingsViewModel] Setting active semester to ID: ${targetSemester.id}`);
         await this.setCurrentSemester(targetSemester.id);
       } else {
-        console.error('[SettingsViewModel] No available semesters to set.');
         this.errorMessage = '无法加载学期数据';
       }
-
     } catch (err) {
       this.errorMessage = `初始化设置失败: ${(err as Error).message}`;
       console.error(this.errorMessage);
@@ -70,47 +50,74 @@ export class SettingsViewModel {
     }
   }
 
-  /**
-   * 切换当前学期，这个方法现在是更新状态和存储的唯一入口
-   */
   async setCurrentSemester(semesterId: number): Promise<void> {
-    const selectedSemester = this.semesters.find(s => s.id === semesterId);
+    // 最终修正：为 find 方法的参数 s 显式声明类型
+    const selectedSemester = this.semesters.find((s: Semester) => s.id === semesterId);
     if (selectedSemester) {
-      // 更新ViewModel的属性，UI会因为@Observed而自动刷新
       this.currentSemesterId = selectedSemester.id;
       this.startDate = selectedSemester.startDate;
       this.totalWeeks = selectedSemester.totalWeeks;
 
-      // 将新选择的学期信息写入AppStorage，实现持久化
       AppStorage.Set(AppSettings.CURRENT_SEMESTER_ID_KEY, selectedSemester.id);
       AppStorage.Set(AppSettings.CURRENT_SEMESTER_START_DATE_KEY, selectedSemester.startDate);
       AppStorage.Set(AppSettings.CURRENT_SEMESTER_TOTAL_WEEKS_KEY, selectedSemester.totalWeeks);
 
-      console.log(`[SettingsViewModel] Semester changed and saved to AppStorage: ID=${selectedSemester.id}`);
+      this.calculateCurrentWeek();
+      console.log(`[SettingsViewModel] Semester changed and saved: ID=${selectedSemester.id}`);
     } else {
-      console.warn(`[SettingsViewModel] Semester with ID ${semesterId} not found in the list.`);
+      console.warn(`[SettingsViewModel] Semester with ID ${semesterId} not found.`);
     }
   }
 
-  // updateSemesterDetails 方法保持原样，它已经包含了更新成功后刷新列表的逻辑
-  async updateSemesterDetails(semesterId: number, newStartDate: string, newTotalWeeks: number): Promise<void> {
+  async updateSemesterDetails(semesterId: number, updateData: Partial<SemesterUpdateDTO>): Promise<void> {
+    if (!semesterId || semesterId === -1) {
+      promptAction.showToast({ message: '无效的学期ID' });
+      return;
+    }
     this.isLoading = true;
     try {
-      const updateDTO: SemesterUpdateDTO = { startDate: newStartDate, totalWeeks: newTotalWeeks };
-      await httpUtil.put<object>(`/semesters/${semesterId}`, updateDTO);
-
-      if (this.currentSemesterId === semesterId) {
-        AppStorage.Set(AppSettings.CURRENT_SEMESTER_START_DATE_KEY, newStartDate);
-        AppStorage.Set(AppSettings.CURRENT_SEMESTER_TOTAL_WEEKS_KEY, newTotalWeeks);
+      // 最终修正：为 find 方法的参数 s 显式声明类型
+      const currentSemester = this.semesters.find((s: Semester) => s.id === semesterId);
+      if (!currentSemester) {
+        throw new Error("未找到当前学期");
       }
-
-      await this.init(); // 重新初始化来刷新所有数据
+      const updateDTO: SemesterUpdateDTO = {
+        startDate: updateData.startDate ?? currentSemester.startDate,
+        totalWeeks: updateData.totalWeeks ?? currentSemester.totalWeeks,
+      };
+      await httpUtil.put<object>(`/semesters/${semesterId}`, updateDTO);
+      await this.init();
       promptAction.showToast({ message: '学期信息更新成功' });
     } catch (err) {
-      this.errorMessage = `更新学期信息异常: ${(err as Error).message}`;
-      promptAction.showToast({ message: this.errorMessage });
+      const errorMessage = `更新学期信息异常: ${(err as Error).message}`;
+      this.errorMessage = errorMessage;
+      promptAction.showToast({ message: errorMessage });
     } finally {
       this.isLoading = false;
+    }
+  }
+
+  calculateCurrentWeek(): void {
+    if (!this.startDate || this.startDate === '加载中...') {
+      this.currentWeekNumber = 1;
+      return;
+    }
+    try {
+      const startDate = new Date(this.startDate);
+      const now = new Date();
+      startDate.setHours(0, 0, 0, 0);
+      now.setHours(0, 0, 0, 0);
+      const diff = now.getTime() - startDate.getTime();
+      if (diff < 0) {
+        this.currentWeekNumber = 1;
+        return;
+      }
+      const diffDays = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const week = Math.floor(diffDays / 7) + 1;
+      this.currentWeekNumber = week;
+    } catch (e) {
+      console.error("Error calculating current week: ", e);
+      this.currentWeekNumber = 1;
     }
   }
 }
