@@ -43,9 +43,19 @@ struct MainPage {
    * 这样我们就可以在函数内部使用 await 来等待异步操作完成
    */
   async aboutToAppear() {
-    console.log('[MainPage] Appearing. Initializing permissions and notifications.');
+    console.log('[MainPage] Appearing. Initializing settings and permissions.');
 
-    // ★★★ 核心修正 #2：等待权限请求完成后，再决定是否执行下一步 ★★★
+    // ★★★ 核心修正 #2：在请求权限之前，先初始化设置并计算周数 ★★★
+    // 这一步会加载学期列表，并根据当前学期计算出正确的周数，存入AppStorage
+    try {
+      await this.settingsVM.init();
+      console.log('[MainPage] SettingsViewModel initialized and current week calculated.');
+    } catch (e) {
+      console.error(`[MainPage] Failed to initialize SettingsViewModel: ${(e as Error).message}`);
+    }
+
+
+    // ★★★ 核心修正 #3：等待权限请求完成后，再决定是否执行下一步 ★★★
     const hasPermission = await this.requestNotificationPermission(getContext(this) as common.UIAbilityContext);
 
     if (hasPermission) {

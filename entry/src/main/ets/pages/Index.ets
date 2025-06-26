@@ -3,6 +3,7 @@
 import { WeeklyCourseViewModel } from '../viewmodel/WeeklyCourseViewModel'
 import { WeekView } from './WeekView' // 导入我们新建的WeekView组件
 import router from '@ohos.router'
+import { AppSettings } from '../common/AppSettings';
 
 // 定义一个类型来持有每个页面的ViewModel
 type WeekViewModelMap = Map<number, WeeklyCourseViewModel>;
@@ -12,8 +13,11 @@ export struct Index {
   // ★★★ 核心：用一个Map来存储每一周对应的ViewModel ★★★
   @State weekViewModels: WeekViewModelMap = new Map();
 
-  // 当前周数
-  @State currentWeek: number = 16; // 默认显示第16周
+  // ★★★ 核心修正 #1: 使用 @StorageLink 响应式地绑定当前周 ★★★
+  // 这将自动从 AppStorage 获取值，并在值从其他地方（如MainPage）被修改时，自动更新本页面的 currentWeek
+  @StorageLink(AppSettings.CALCULATED_CURRENT_WEEK_KEY)
+  @Watch('onCurrentWeekChange') // 添加 Watch 回调，当 currentWeek 变化时触发
+  private currentWeek: number = 1; // 提供一个默认值，以防AppStorage中无值
 
   // 添加周数选择对话框的状态
   @State showWeekPicker: boolean = false;
@@ -23,8 +27,20 @@ export struct Index {
   private readonly startWeek: number = 1;
   private weekNumbers: number[] = [];
 
+  // ★★★ 核心修正 #2: 定义 Watch 回调函数 ★★★
+  // 当 currentWeek (从 AppStorage 同步而来) 发生变化时，命令式地跳转 Swiper
+  onCurrentWeekChange(): void {
+    const targetIndex = this.currentWeek - this.startWeek;
+    // 确保 index 在有效范围内
+    if (targetIndex >= 0 && targetIndex < this.totalWeeks) {
+      console.log(`[Index.ets] currentWeek changed to ${this.currentWeek}. Jumping Swiper to index: ${targetIndex}`);
+      // 使用 controller 命令式地跳转 Swiper，这比声明式绑定更可靠
+      // 第二个参数 false 表示跳转时无动画，避免用户看到闪烁
+      this.swiperController.changeIndex(targetIndex, false);
+    }
+  }
+
   aboutToAppear() {
-    // 初始化周数数组
     if (this.weekNumbers.length === 0) {
       for (let i = this.startWeek; i <= this.totalWeeks; i++) {
         this.weekNumbers.push(i);
@@ -32,6 +48,10 @@ export struct Index {
     }
     // 确保当前周的ViewModel已创建
     this.getOrCreateViewModelForWeek(this.currentWeek);
+
+    // ★★★ 核心修正 #3: 手动调用一次 ★★★
+    // 确保即使@Watch不触发初始值的变更，也能在页面出现时跳转到正确的周
+    this.onCurrentWeekChange();
   }
 
   // 获取或创建指定周的ViewModel
