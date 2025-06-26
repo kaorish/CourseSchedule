@@ -161,26 +161,33 @@ export struct Settings {
         Column({ space: 10 }) {
           // 使用新的构建器，不再传递 value
           this.ClickableSettingItem('课程管理', () => { router.pushUrl({ url: 'pages/CourseManage' }); });
-
-          Divider().width('90%').height(1).color('#E0E0E0').margin({ top: 5, bottom: 5 });
+          Divider().width('85%').height(1).color('#E0E0E0').margin({ bottom: 5 });
 
           this.ClickableSettingItem('切换学期', () => { this.displaySemesterPicker(); });
+          Divider().width('85%').height(1).color('#E0E0E0').margin({ bottom: 5 });
+
           this.ClickableSettingItem('设置学期开始日期', () => { this.displayDatePicker(); });
+          Divider().width('85%').height(1).color('#E0E0E0').margin({ bottom: 5 });
+
           this.ClickableSettingItem('设置学期总周数', () => { this.displayTotalWeeksPicker(); });
+          Divider().width('85%').height(1).color('#E0E0E0').margin({ bottom: 5 });
 
           this.ReadOnlySettingItem('当前的周数', `第 ${this.settingsVM.currentWeekNumber} 周`);
+          Divider().width('85%').height(1).color('#E0E0E0').margin({ bottom: 5 });
 
           Row() {
             Text('是否显示周末').fontSize(18).layoutWeight(1);
             Toggle({ type: ToggleType.Switch, isOn: this.settingsVM.showWeekend })
               .onChange((isOn: boolean) => { this.settingsVM.showWeekend = isOn; });
           }.width('90%').padding(15).backgroundColor(Color.White).borderRadius(12).margin({ top: 10 });
+          Divider().width('85%').height(1).color('#E0E0E0').margin({ bottom: 5 });
 
           Row() {
             Text('是否显示非本周课程').fontSize(18).layoutWeight(1);
             Toggle({ type: ToggleType.Switch, isOn: this.settingsVM.showNonCurrentWeekCourses })
               .onChange((isOn: boolean) => { this.settingsVM.showNonCurrentWeekCourses = isOn; });
           }.width('90%').padding(15).backgroundColor(Color.White).borderRadius(12).margin({ top: 10 });
+          Divider().width('85%').height(1).color('#E0E0E0').margin({ bottom: 5 });
 
           this.ClickableSettingItem('通知提前分钟', () => { this.displayTimePicker(); });
         }
@@ -188,6 +195,6 @@ export struct Settings {
       }
       .layoutWeight(1);
     }
-    .width('100%').height('100%').backgroundColor('#f5f5f5');
+    .width('100%').height('100%').backgroundColor('#ffffff');
   }
 }

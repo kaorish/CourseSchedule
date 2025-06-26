@@ -38,15 +38,9 @@ struct MainPage {
     this.scheduleTodayNotifications();
   }
 
-  /**
-   * ★★★ 核心修正 #1：将 aboutToAppear 声明为 async 函数 ★★★
-   * 这样我们就可以在函数内部使用 await 来等待异步操作完成
-   */
   async aboutToAppear() {
     console.log('[MainPage] Appearing. Initializing settings and permissions.');
 
-    // ★★★ 核心修正 #2：在请求权限之前，先初始化设置并计算周数 ★★★
-    // 这一步会加载学期列表，并根据当前学期计算出正确的周数，存入AppStorage
     try {
       await this.settingsVM.init();
       console.log('[MainPage] SettingsViewModel initialized and current week calculated.');
@@ -54,8 +48,6 @@ struct MainPage {
       console.error(`[MainPage] Failed to initialize SettingsViewModel: ${(e as Error).message}`);
     }
 
-
-    // ★★★ 核心修正 #3：等待权限请求完成后，再决定是否执行下一步 ★★★
     const hasPermission = await this.requestNotificationPermission(getContext(this) as common.UIAbilityContext);
 
     if (hasPermission) {
@@ -91,16 +83,11 @@ struct MainPage {
     }
   }
 
-  /**
-   * ★★★ 核心修正 #3：让函数返回一个布尔值，告诉调用者权限是否成功获取 ★★★
-   */
   async requestNotificationPermission(context: common.UIAbilityContext): Promise<boolean> {
     try {
       let atManager = abilityAccessCtrl.createAtManager();
       const permissions: Array<Permissions> = ['ohos.permission.PUBLISH_AGENT_REMINDER'];
-      // requestPermissionsFromUser 会等待用户点击弹窗
       const result = await atManager.requestPermissionsFromUser(context, permissions);
-      // 检查授权结果，如果所有权限都被授予（grantStatus都为0），则认为成功
       const allGranted = result.authResults.every(status => status === 0);
       if (!allGranted) {
         console.warn('Not all reminder permissions were granted by the user.');
@@ -109,14 +96,13 @@ struct MainPage {
 
       let isEnabled = await notificationManager.isNotificationEnabled();
       if (!isEnabled) {
-        // 引导用户开启，但这里我们无法得知用户最终是否开启，暂时假设他会开启
         await notificationManager.requestEnableNotification();
       }
-      return true; // 所有流程走完，返回成功
+      return true;
     } catch (error) {
       const err = error as BusinessError;
       console.error(`Failed to request permission. Code: ${err.code}, message: ${err.message}`);
-      return false; // 发生任何错误都返回失败
+      return false;
     }
   }
 
@@ -127,14 +113,26 @@ struct MainPage {
       TabContent() { Settings() }.tabBar(this.TabBuilder('设置', 2, '⚙️'))
     }
     .onChange((index: number) => { this.currentTabIndex = index; })
-    .barWidth('100%').barHeight(60).backgroundColor('#F1F3F5').animationDuration(200)
+    .barWidth('100%')
+    .barHeight(60)
+    // 移除在 Tabs 上的边框和背景色，交由 TabBuilder 处理
+    .animationDuration(200)
   }
 
+  // 【核心修正】将分割线和背景色精确地应用到 TabBar 上
   @Builder TabBuilder(title: string, index: number, icon: string) {
-    Column({ space: 4 }) {
-      Text(icon).fontSize(24)
-      Text(title).fontSize(12).fontColor(this.currentTabIndex === index ? '#007DFF' : '#666666')
+    Column() {
+      // 顶部分割线
+      Divider().strokeWidth(1).color('#E0E0E0')
+      // 原有的内容
+      Column({ space: 4 }) {
+        Text(icon).fontSize(24)
+        Text(title).fontSize(12).fontColor(this.currentTabIndex === index ? '#007DFF' : '#666666')
+      }
+      .width('100%')
+      .layoutWeight(1) // 确保内容区域占满剩余空间
+      .justifyContent(FlexAlign.Center)
     }
-    .width('100%').height('100%').justifyContent(FlexAlign.Center)
+    .backgroundColor(Color.White) // 将白色背景应用到每个 TabBar 的容器上
   }
 }

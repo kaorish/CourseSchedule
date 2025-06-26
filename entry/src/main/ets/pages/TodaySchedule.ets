@@ -119,18 +119,18 @@ export struct TodaySchedule { // 定义 TodaySchedule 组件
   build() { // 组件的构建方法
     Column() { // 使用列布局作为根容器
       // 顶部导航栏
-      Row() {
-        Text('今日课程')
-          .fontSize(20)
-          .fontColor(Color.White)
-          .fontWeight(FontWeight.Bold)
-          .margin({ left: 140 })
-        Blank()
-      }
-      .width('100%')
-      .height(50)
-      .padding({ left: 16, right: 16 })
-      .backgroundColor('#007AFF') // 设置背景颜色
+      // Row() {
+      //   Text('今日课程')
+      //     .fontSize(20)
+      //     .fontColor(Color.White)
+      //     .fontWeight(FontWeight.Bold)
+      //     .margin({ left: 140 })
+      //   Blank()
+      // }
+      // .width('100%')
+      // .height(50)
+      // .padding({ left: 16, right: 16 })
+      // .backgroundColor('#007AFF') // 设置背景颜色
       // 使用Stack组件让内容卡片可以覆盖在头部之上
       Stack({ alignContent: Alignment.Top }) { // 使用堆叠布局，内容顶部对齐
         // 蓝色头部
