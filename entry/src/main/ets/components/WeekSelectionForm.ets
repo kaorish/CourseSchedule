@@ -12,13 +12,13 @@ export struct WeekSelectionForm {
         .fontSize(16)
         .fontWeight(FontWeight.Bold)
         .alignSelf(ItemAlign.Start)
-      
+
       // 快速选择按钮
       this.buildQuickSelectButtons()
-      
-      // 周次选择网格
-      this.buildWeekGrid()
-      
+
+      // 周次选择
+      this.buildWeekFlexLayout()
+
       // 显示已选择的周次
       if (this.courseParams.weeks.length > 0) {
         Text(`已选择: ${this.courseParams.weeks.join('、')} 周`)
@@ -47,7 +47,7 @@ export struct WeekSelectionForm {
           }
           this.updateWeeksCallback();
         })
-      
+
       Button('清空')
         .fontSize(12)
         .height(32)
@@ -56,7 +56,7 @@ export struct WeekSelectionForm {
           this.selectedWeeks.clear();
           this.updateWeeksCallback();
         })
-      
+
       Button('单周')
         .fontSize(12)
         .height(32)
@@ -68,7 +68,7 @@ export struct WeekSelectionForm {
           }
           this.updateWeeksCallback();
         })
-      
+
       Button('双周')
         .fontSize(12)
         .height(32)
@@ -85,34 +85,29 @@ export struct WeekSelectionForm {
   }
 
   @Builder
-  buildWeekGrid() {
-    Grid() {
+  buildWeekFlexLayout() {
+    Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start }) {
       ForEach(Array.from({ length: 20 }, (_: number, i: number) => i + 1), (week: number) => {
-        GridItem() {
-          Button(`${week}`)
-            .width('100%')
-            .height(44)
-            .fontSize(14)
-            .fontColor(this.selectedWeeks.has(week) ? Color.White : '#007DFF')
-            .backgroundColor(this.selectedWeeks.has(week) ? '#007DFF' : Color.Transparent)
-            .border({ width: 1, color: '#007DFF' })
-            .borderRadius(6)
-            .onClick(() => {
-              if (this.selectedWeeks.has(week)) {
-                this.selectedWeeks.delete(week);
-              } else {
-                this.selectedWeeks.add(week);
-              }
-              this.updateWeeksCallback();
-            })
-        }
-        .padding(2)
+        Button(`${week}`)
+          // 【核心修正】增加按钮宽度以容纳两位数，同时调整圆角以适应新的形状
+          .width(56) // 将宽度从 44 增加到 56
+          .height(44)
+          .margin({ right: 8, bottom: 8 })
+          .fontSize(14)
+          .fontColor(this.selectedWeeks.has(week) ? Color.White : '#007DFF')
+          .backgroundColor(this.selectedWeeks.has(week) ? '#007DFF' : Color.Transparent)
+          .border({ width: 1, color: '#007DFF' })
+          .borderRadius(8) // 将圆角从 22 调整为 8，使其成为圆角矩形
+          .onClick(() => {
+            if (this.selectedWeeks.has(week)) {
+              this.selectedWeeks.delete(week);
+            } else {
+              this.selectedWeeks.add(week);
+            }
+            this.updateWeeksCallback();
+          })
       }, (week: number) => week.toString())
     }
-    .columnsTemplate('1fr 1fr 1fr 1fr 1fr')
-    .rowsGap(8)
-    .columnsGap(8)
-    .height(180)
     .width('100%')
   }
 

@@ -1,9 +1,11 @@
 import { AddScheduleParams } from '../model/AddScheduleParams';
 import { DayOption, DAY_OPTIONS } from '../model/AddCourseTypes';
+import { BreakpointSystem, DeviceType } from '../utils/BreakpointSystem';
 
 @Component
 export struct TimeInfoForm {
   @Link courseParams: AddScheduleParams;
+  @Prop breakpointSystem: BreakpointSystem;
 
   build() {
     Column({ space: 12 }) {
@@ -11,19 +13,16 @@ export struct TimeInfoForm {
         .fontSize(16)
         .fontWeight(FontWeight.Bold)
         .alignSelf(ItemAlign.Start)
-      
-      // 星期选择
+
       this.buildDaySelection()
-      
-      // 开始节次
+
       this.buildPeriodInput('开始节次:', this.courseParams.startPeriod, (value: number) => {
         this.courseParams.startPeriod = value;
         if (this.courseParams.endPeriod < value) {
           this.courseParams.endPeriod = value;
         }
       })
-      
-      // 结束节次
+
       this.buildPeriodInput('结束节次:', this.courseParams.endPeriod, (value: number) => {
         if (value >= this.courseParams.startPeriod) {
           this.courseParams.endPeriod = value;
@@ -42,26 +41,15 @@ export struct TimeInfoForm {
       Text('星期:')
         .alignSelf(ItemAlign.Start)
         .fontSize(14)
-      
-      Column({ space: 8 }) {
-        // 第一行：周一到周四
-        Row({ space: 8 }) {
-          ForEach(DAY_OPTIONS.slice(0, 4), (day: DayOption) => {
-            this.buildDayButton(day)
-          }, (day: DayOption) => day.value.toString())
-        }
-        .width('100%')
-        
-        // 第二行：周五到周日
-        Row({ space: 8 }) {
-          ForEach(DAY_OPTIONS.slice(4, 7), (day: DayOption) => {
-            this.buildDayButton(day)
-          }, (day: DayOption) => day.value.toString())
-          
-          Blank().layoutWeight(1)
-        }
-        .width('100%')
+
+      // 【修改】使用 Row 在平板上尝试横向排列，并在宽度不足时换行
+      // 使用 FlexWrap 组件来实现更好的弹性换行效果
+      Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start, alignItems: ItemAlign.Center, alignContent: FlexAlign.Start }) {
+        ForEach(DAY_OPTIONS, (day: DayOption) => {
+          this.buildDayButton(day)
+        }, (day: DayOption) => day.value.toString())
       }
+      .width('100%')
     }
   }
 
@@ -70,7 +58,7 @@ export struct TimeInfoForm {
     Button(day.label)
       .fontSize(12)
       .height(36)
-      .layoutWeight(1)
+      .margin({ right: 8, bottom: 8 })
       .fontColor(this.courseParams.dayOfWeek === day.value ? Color.White : '#007DFF')
       .backgroundColor(this.courseParams.dayOfWeek === day.value ? '#007DFF' : Color.Transparent)
       .border({ width: 1, color: '#007DFF' })
@@ -85,10 +73,10 @@ export struct TimeInfoForm {
     Row() {
       Text(label)
         .width(80)
-      
-      TextInput({ 
-        placeholder: '1-10', 
-        text: value.toString() 
+
+      TextInput({
+        placeholder: '1-10',
+        text: value.toString()
       })
         .type(InputType.Number)
         .layoutWeight(1)

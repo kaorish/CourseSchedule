@@ -29,21 +29,21 @@ struct AddCourse {
   build() {
     Column() {
       this.buildTopBar()
-      
+
       Scroll() {
         Column({ space: 16 }) {
           BasicInfoForm({ courseParams: $courseParams })
           TimeInfoForm({ courseParams: $courseParams })
-          WeekSelectionForm({ 
-            courseParams: $courseParams, 
-            selectedWeeks: $selectedWeeks 
+          WeekSelectionForm({
+            courseParams: $courseParams,
+            selectedWeeks: $selectedWeeks
           })
           ColorSelectionForm({ courseParams: $courseParams })
         }
         .padding(16)
       }
       .layoutWeight(1)
-      
+
       this.buildBottomButtons()
     }
     .width('100%')
@@ -58,15 +58,15 @@ struct AddCourse {
         .fontColor('#007DFF')
         .backgroundColor(Color.Transparent)
         .onClick(() => router.back())
-      
+
       Blank()
-      
+
       Text('添加课程')
         .fontSize(18)
         .fontWeight(FontWeight.Bold)
-      
+
       Blank()
-      
+
       Button('保存')
         .fontColor(this.isLoading ? Color.Gray : '#007DFF')
         .backgroundColor(Color.Transparent)
@@ -88,7 +88,7 @@ struct AddCourse {
         .fontColor('#666')
         .backgroundColor('#F0F0F0')
         .onClick(() => router.back())
-      
+
       Button(this.isLoading ? '保存中...' : '保存课程')
         .layoutWeight(1)
         .height(48)
@@ -110,9 +110,9 @@ struct AddCourse {
     }
 
     this.isLoading = true;
-    
+
     const result: ServiceResponse = await CourseService.saveCourse(this.courseParams);
-    
+
     if (result.success) {
       AlertDialog.show({
         title: '成功',
@@ -133,7 +133,7 @@ struct AddCourse {
     } else {
       this.showToast(result.message);
     }
-    
+
     this.isLoading = false;
   }
 
