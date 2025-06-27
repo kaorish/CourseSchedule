@@ -1,131 +1,115 @@
-import { TodayCourseInfo } from '../../model/TodayScheduleVO'; // 导入我们定义的卡片数据模型
+// 文件路径: entry/src/main/ets/widget/pages/WidgetCard.ets (最终修正版)
+import { Want } from '@kit.AbilityKit';
+import { TodayCourseResponse } from '../../viewmodel/TodayScheduleViewModel';
+
+class WidgetData {
+  todayText: string = '今天';
+  weekText: string = '';
+  courses: TodayCourseResponse[] = [];
+  isLoading: boolean = true;
+  message: string = '正在加载...';
+}
 
 @Entry
 @Component
 struct WidgetCard {
-  /*
-   * The title.
-   */
-  readonly title: string = 'Hello World';
-  /*
-   * The action type.
-   */
-  readonly actionType: string = 'router';
-  /*
-   * The ability name.
-   */
-  readonly abilityName: string = 'EntryAbility';
-  /*
-   * The message.
-   */
-  readonly message: string = 'add detail';
-  /*
-   * The width percentage setting.
-   */
-  readonly fullWidthPercent: string = '100%';
-  /*
-   * The height percentage setting.
-   */
-  readonly fullHeightPercent: string = '100%';
-  @State course: TodayCourseInfo = new TodayCourseInfo();
-
-  // aboutToAppear生命周期钩子，在组件首次渲染前调用。
-  aboutToAppear() {
-    console.info('[CourseCard] 卡片即将显示，数据为:', JSON.stringify(this.course));
-  }
+  // ★★★ 核心修正：添加 @State 装饰器，让UI能够响应数据变化 ★★★
+  @State private data: WidgetData = new WidgetData();
 
   build() {
     FormLink({
-      action: this.actionType,
-      abilityName: this.abilityName,
-      params: {
-        message: this.message
-      }
+      action: 'ability',
+      bundleName: 'com.sunhao.myapplication', // 您的应用包名
+      abilityName: 'EntryAbility'             // 您的主 Ability 名称
     }) {
       Column() {
-        // 课程名称
-        Text(this.course.name)
-          .fontSize(20)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(Color.White)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .width('100%')
-          .textAlign(TextAlign.Center)
-          .margin({ bottom: 8 })
-
-        // 教师信息行
+        // 顶部信息栏
         Row() {
-          Image($r('app.media.icon_teacher'))
-            .width(28).height(28).margin({ right: 4 }).fillColor(Color.White)
-          Text(this.course.teacher)
-            .fontSize(14).fontColor(Color.White).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text(this.data.todayText)
+            .fontSize(14)
+            .fontColor('#333333')
+          Blank()
+          Text(this.data.weekText)
+            .fontSize(14)
+            .fontColor('#666666')
         }
         .width('100%')
-        .justifyContent(FlexAlign.Center)
+        .padding({ top: 12, left: 16, right: 16, bottom: 8 })
 
-        //地点信息行
-        Row() {
-          Image($r('app.media.icon_location'))
-            .width(28).height(28).margin({ right: 4 }).fillColor(Color.White)
-          Text(this.course.location)
-            .fontSize(14).fontColor(Color.White).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+        // 中间内容区
+        Column() {
+          // isLoading为false且有课程时，将显示CourseList
+          if (this.data.isLoading) {
+            Text('正在加载...')
+              .fontSize(16)
+              .fontColor('#999999')
+          } else if (this.data.courses && this.data.courses.length > 0) {
+            this.CourseList(this.data.courses)
+          } else {
+            Text(this.data.message)
+              .fontSize(16)
+              .fontColor('#999999')
+          }
         }
+        .layoutWeight(1)
         .width('100%')
         .justifyContent(FlexAlign.Center)
-
-        //节次信息行
-        Row() {
-          Image($r('app.media.timeText'))
-            .width(28).height(28).margin({ right: 4 }).fillColor(Color.White)
-          Text(this.course.timeText)
-            .fontSize(14).fontColor(Color.White).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-        }
-        .width('100%')
-        .justifyContent(FlexAlign.Center)
-
-        // 时间信息行
-        Row() {
-          Image($r('app.media.icon_time'))
-            .width(28).height(28).margin({ right: 4 }).fillColor(Color.White)
-          Text(this.course.timeText)
-            .fontSize(14).fontColor(Color.White).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-        }
-        .width('100%')
-        .justifyContent(FlexAlign.Center)
+        .padding({ left: 16, right: 16, bottom: 12 })
       }
       .width('100%')
       .height('100%')
-      .padding(16)
-      .justifyContent(FlexAlign.Center)
+      .backgroundColor(Color.White)
+      .borderRadius(24)
     }
   }
 
-  //
-  // 辅助函数：调整颜色亮度以创建渐变效果
-  private adjustColorBrightness(hex: string, percent: number): string {
-    if (!hex || typeof hex !== 'string') {
-      return '#000000';
+  // CourseList 和 CourseItem 构建器保持不变
+  @Builder
+  CourseList(courses: TodayCourseResponse[]) {
+    List({ space: 8 }) {
+      ForEach(courses, (course: TodayCourseResponse) => {
+        ListItem() {
+          this.CourseItem(course)
+        }
+      }, (course: TodayCourseResponse) => course.scheduleId.toString())
     }
-    let h = hex.startsWith('#') ? hex.slice(1) : hex;
-    if (h.length === 3) {
-      h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
-    }
-    if (h.length !== 6) {
-      return '#000000';
-    }
+    .width('100%')
+    .height('100%')
+  }
 
-    const num = parseInt(h, 16);
-    let r = (num >> 16) + percent;
-    r = Math.max(0, Math.min(255, r));
-    let g = ((num >> 8) & 0x00FF) + percent;
-    g = Math.max(0, Math.min(255, g));
-    let b = (num & 0x0000FF) + percent;
-    b = Math.max(0, Math.min(255, b));
-
-    return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, '0')}`;
+  @Builder
+  CourseItem(course: TodayCourseResponse) {
+    Row({ space: 8 }) {
+      Divider().vertical(true).width(4).height(40).backgroundColor(course.color).borderRadius(2)
+      Column({ space: 2 }) {
+        Text(course.name)
+          .fontSize(15)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#000000')
+          .maxLines(1)
+          .textOverflow({overflow: TextOverflow.Ellipsis})
+        Text(`@ ${course.location}`)
+          .fontSize(12)
+          .fontColor('#666666')
+          .maxLines(1)
+          .textOverflow({overflow: TextOverflow.Ellipsis})
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
+      .padding({left: 4})
+      Column({ space: 4 }) {
+        Text(course.specificStartTime ?? '')
+          .fontSize(12)
+          .fontColor('#333333')
+        Text(course.specificEndTime ?? '')
+          .fontSize(12)
+          .fontColor('#333333')
+      }
+      .alignItems(HorizontalAlign.End)
+    }
+    .width('100%')
+    .padding({left:8, right: 12, top: 10, bottom: 10})
+    .borderRadius(12)
+    .backgroundColor('#F7F7F7')
   }
 }
-
-
-

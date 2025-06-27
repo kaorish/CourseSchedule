@@ -3,6 +3,7 @@ import promptAction from '@ohos.promptAction';
 import router from '@ohos.router';
 import { Semester } from '../model/Semester';
 import { AppSettings } from '../common/AppSettings';
+import { common } from '@kit.AbilityKit';
 
 /**
  * 为“通知提前时间”选项定义一个明确的类
@@ -41,7 +42,8 @@ export struct Settings {
   ];
 
   aboutToAppear() {
-    this.settingsVM.init();
+    const context = getContext(this) as common.UIAbilityContext;
+    this.settingsVM.init(context);
   }
 
   displaySemesterPicker(): void {
@@ -58,7 +60,8 @@ export struct Settings {
         if (value && typeof value.index === 'number') {
           const selectedSemester = this.settingsVM.semesters[value.index];
           if (selectedSemester && selectedSemester.id !== this.settingsVM.currentSemesterId) {
-            this.settingsVM.setCurrentSemester(selectedSemester.id);
+            const context = getContext(this) as common.UIAbilityContext;
+            this.settingsVM.setCurrentSemester(selectedSemester.id, context);
           }
         }
       }
@@ -77,7 +80,8 @@ export struct Settings {
           const month = (value.month + 1).toString().padStart(2, '0');
           const day = value.day.toString().padStart(2, '0');
           const formattedDate = `${value.year}-${month}-${day}`;
-          this.settingsVM.updateSemesterDetails(this.settingsVM.currentSemesterId, { startDate: formattedDate });
+          const context = getContext(this) as common.UIAbilityContext;
+          this.settingsVM.updateSemesterDetails(this.settingsVM.currentSemesterId, { startDate: formattedDate }, context);
         }
       }
     });
@@ -90,7 +94,8 @@ export struct Settings {
       onAccept: (value?: TextPickerResult) => {
         if (value && typeof value.value === 'string') {
           const selectedWeeks = parseInt(value.value.split(' ')[0]);
-          this.settingsVM.updateSemesterDetails(this.settingsVM.currentSemesterId, { totalWeeks: selectedWeeks });
+          const context = getContext(this) as common.UIAbilityContext;
+          this.settingsVM.updateSemesterDetails(this.settingsVM.currentSemesterId, { totalWeeks: selectedWeeks }, context);
         }
       }
     });

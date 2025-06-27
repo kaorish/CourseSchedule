@@ -3,6 +3,8 @@ import { Semester } from '../model/Semester';
 import { SemesterUpdateDTO } from '../model/SemesterUpdateDTO';
 import promptAction from '@ohos.promptAction';
 import { AppSettings } from '../common/AppSettings';
+import { SharedPreferenceManager } from '../utils/SharedPreferenceManager'; // 导入新创建的管理器
+import { common } from '@kit.AbilityKit'; // 导入 common
 
 @Observed
 export class SettingsViewModel {
@@ -16,7 +18,7 @@ export class SettingsViewModel {
   showWeekend: boolean = true;
   showNonCurrentWeekCourses: boolean = false;
 
-  async init(): Promise<void> {
+  async init(context: common.UIAbilityContext): Promise<void> {
     console.log('[SettingsViewModel] Initializing...');
     this.isLoading = true;
     this.errorMessage = '';
@@ -43,7 +45,7 @@ export class SettingsViewModel {
       // 4. 如果最终找到了一个有效的学期，则设置它为当前学期
       if (targetSemester) {
         // 调用setCurrentSemester来更新所有相关状态和AppStorage
-        await this.setCurrentSemester(targetSemester.id);
+        await this.setCurrentSemester(targetSemester.id, context);
       } else {
         // 如果连一个学期数据都没有
         this.errorMessage = '无法加载任何学期数据';
@@ -58,13 +60,17 @@ export class SettingsViewModel {
     }
   }
 
-  async setCurrentSemester(semesterId: number): Promise<void> {
+  async setCurrentSemester(semesterId: number, context: common.UIAbilityContext): Promise<void> {
     const selectedSemester = this.semesters.find((s: Semester) => s.id === semesterId);
     if (selectedSemester) {
       this.currentSemesterId = selectedSemester.id;
       this.startDate = selectedSemester.startDate;
       this.totalWeeks = selectedSemester.totalWeeks;
 
+      // 使用 SharedPreferenceManager 保存学期ID
+      await SharedPreferenceManager.setCurrentSemesterId(context, selectedSemester.id);
+
+      // AppStorage 仍然可以用于UI的快速响应
       AppStorage.Set(AppSettings.CURRENT_SEMESTER_ID_KEY, selectedSemester.id);
       AppStorage.Set(AppSettings.CURRENT_SEMESTER_START_DATE_KEY, selectedSemester.startDate);
       AppStorage.Set(AppSettings.CURRENT_SEMESTER_TOTAL_WEEKS_KEY, selectedSemester.totalWeeks);
@@ -78,7 +84,7 @@ export class SettingsViewModel {
    * @param semesterId 要更新的学期ID
    * @param updateData 包含新开始日期或新总周数的对象
    */
-  async updateSemesterDetails(semesterId: number, updateData: Partial<SemesterUpdateDTO>): Promise<void> {
+  async updateSemesterDetails(semesterId: number, updateData: Partial<SemesterUpdateDTO>, context: common.UIAbilityContext): Promise<void> {
     if (!semesterId || semesterId === -1) {
       promptAction.showToast({ message: '无效的学期ID' });
       return;
@@ -96,7 +102,7 @@ export class SettingsViewModel {
       };
 
       await httpUtil.put<object>(`/semesters/${semesterId}`, updateDTO);
-      await this.init();
+      await this.init(context);
       promptAction.showToast({ message: '学期信息更新成功' });
     } catch (err) {
       const errorMessage = `更新学期信息异常: ${(err as Error).message}`;

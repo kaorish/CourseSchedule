@@ -42,7 +42,8 @@ struct MainPage {
     console.log('[MainPage] Appearing. Initializing settings and permissions.');
 
     try {
-      await this.settingsVM.init();
+      const context = getContext(this) as common.UIAbilityContext;
+      await this.settingsVM.init(context);
       console.log('[MainPage] SettingsViewModel initialized and current week calculated.');
     } catch (e) {
       console.error(`[MainPage] Failed to initialize SettingsViewModel: ${(e as Error).message}`);
