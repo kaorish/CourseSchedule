@@ -1,52 +1,51 @@
-// 文件路径: entry/src/main/ets/widget/pages/WidgetCard.ets (最终修正版)
-import { Want } from '@kit.AbilityKit';
+// 文件路径: entry/src/main/ets/widget/pages/WidgetCard.ets (最终功能完整版)
 import { TodayCourseResponse } from '../../viewmodel/TodayScheduleViewModel';
 
-class WidgetData {
-  todayText: string = '今天';
-  weekText: string = '';
-  courses: TodayCourseResponse[] = [];
-  isLoading: boolean = true;
-  message: string = '正在加载...';
-}
+const TAG = '[WidgetCard]';
 
 @Entry
 @Component
 struct WidgetCard {
-  // ★★★ 核心修正：添加 @State 装饰器，让UI能够响应数据变化 ★★★
-  @State private data: WidgetData = new WidgetData();
+  @State todayText: string = '今天';
+  @State weekText: string = '';
+  @State courses: TodayCourseResponse[] = [];
+  @State isLoading: boolean = true;
+  @State message: string = '正在加载...';
+
+  aboutToAppear() {
+    console.info(`${TAG} === aboutToAppear ===`);
+    console.info(`${TAG} Initial state - isLoading: ${this.isLoading}, message: ${this.message}, courses.length: ${this.courses.length}`);
+  }
 
   build() {
+    // ★★★ 核心修正：使用 FormLink 作为根组件，并使用正确的参数 ★★★
     FormLink({
       action: 'ability',
       bundleName: 'com.sunhao.myapplication', // 您的应用包名
       abilityName: 'EntryAbility'             // 您的主 Ability 名称
     }) {
       Column() {
-        // 顶部信息栏
         Row() {
-          Text(this.data.todayText)
+          Text(this.todayText)
             .fontSize(14)
             .fontColor('#333333')
           Blank()
-          Text(this.data.weekText)
+          Text(this.weekText)
             .fontSize(14)
             .fontColor('#666666')
         }
         .width('100%')
         .padding({ top: 12, left: 16, right: 16, bottom: 8 })
 
-        // 中间内容区
         Column() {
-          // isLoading为false且有课程时，将显示CourseList
-          if (this.data.isLoading) {
-            Text('正在加载...')
+          if (this.isLoading) {
+            Text(this.message)
               .fontSize(16)
               .fontColor('#999999')
-          } else if (this.data.courses && this.data.courses.length > 0) {
-            this.CourseList(this.data.courses)
+          } else if (this.courses && this.courses.length > 0) {
+            this.CourseList(this.courses)
           } else {
-            Text(this.data.message)
+            Text(this.message)
               .fontSize(16)
               .fontColor('#999999')
           }
@@ -60,6 +59,10 @@ struct WidgetCard {
       .height('100%')
       .backgroundColor(Color.White)
       .borderRadius(24)
+      .onAppear(() => {
+        console.info(`${TAG} === build (onAppear) ===`);
+        console.info(`${TAG} Current state - isLoading: ${this.isLoading}, message: ${this.message}, courses.length: ${this.courses.length}`);
+      })
     }
   }
 
