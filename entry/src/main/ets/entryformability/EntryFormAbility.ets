@@ -1,4 +1,4 @@
-// 文件路径: entry/src/main/ets/entryformability/EntryFormAbility.ets (最终正确版)
+// 文件路径: entry/src/main/ets/entryformability/EntryFormAbility.ets (最终版)
 import { formBindingData, FormExtensionAbility, formInfo, formProvider } from '@kit.FormKit';
 import { Want, common } from '@kit.AbilityKit';
 import { httpUtil } from '../utils/HttpUtil';
@@ -8,7 +8,7 @@ import { TimeSlot } from '../model/TimeSlot';
 
 const TAG = '[EntryFormAbility]';
 
-// ★★★ 核心修正 #1：定义一个接口来描述卡片数据的结构 ★★★
+// 定义卡片数据的接口，确保类型安全
 interface IWidgetData {
   todayText: string;
   weekText: string;
@@ -40,6 +40,7 @@ export default class EntryFormAbility extends FormExtensionAbility {
     return slot ? slot.endTime : '';
   }
 
+  // 为课程数据补充具体时间
   private processRawCourses(courses: TodayCourseResponse[]): TodayCourseResponse[] {
     courses.forEach((course: TodayCourseResponse) => {
       course.specificStartTime = this.getTimeFromPeriod(course.startPeriod);
@@ -48,6 +49,7 @@ export default class EntryFormAbility extends FormExtensionAbility {
     return courses;
   }
 
+  // 当卡片第一次被添加到桌面时调用
   onAddForm(want: Want): formBindingData.FormBindingData {
     console.info(`${TAG} === onAddForm START ===`);
     const formId = want?.parameters?.[formInfo.FormParam.IDENTITY_KEY] as string;
@@ -59,22 +61,24 @@ export default class EntryFormAbility extends FormExtensionAbility {
     const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
     const todayText = `今天 / ${weekdays[new Date().getDay()]}`;
 
-    // ★★★ 核心修正 #2：使用接口 IWidgetData 来明确 initialData 的类型 ★★★
+    // 定义卡片的初始数据，此时显示“正在加载”
     const initialData: IWidgetData = {
       todayText: todayText,
       weekText: '',
       courses: [],
-      isLoading: true,
+      isLoading: true, // 初始状态为加载中
       message: '正在加载...'
     };
     const formData = formBindingData.createFormBindingData(initialData);
 
+    // 立即触发一次异步数据更新
     this.updateFormData(formId);
 
-    console.info(`${TAG} === onAddForm END ===`);
+    console.info(`${TAG} === onAddForm END (returning initial data) ===`);
     return formData;
   }
 
+  // 核心的异步数据更新方法
   private async updateFormData(formId: string) {
     console.info(`${TAG} --- updateFormData START for formId: ${formId} ---`);
     const context = this.context as common.FormExtensionContext;
@@ -82,7 +86,7 @@ export default class EntryFormAbility extends FormExtensionAbility {
     const todayText = `今天 / ${weekdays[new Date().getDay()]}`;
 
     let todayCourses: TodayCourseResponse[] = [];
-    let finalMessage = '正在加载...';
+    let finalMessage = '';
     let finalIsLoading = true;
 
     try {
@@ -93,13 +97,13 @@ export default class EntryFormAbility extends FormExtensionAbility {
       params.semesterId = semesterId;
 
       const response = await httpUtil.get<TodayCourseResponse[]>('/courses/today', params);
-      console.info(`${TAG} Received raw response: ${JSON.stringify(response)}`);
 
       if (response.status && response.data) {
-        console.info(`${TAG} Received ${response.data.length} courses.`);
         todayCourses = this.processRawCourses(response.data);
         if (todayCourses.length === 0) {
           finalMessage = '今日课程已上完';
+        } else {
+          finalMessage = ''; // 有课程时，不需要显示消息
         }
       } else {
         finalMessage = '数据加载失败';
@@ -110,9 +114,10 @@ export default class EntryFormAbility extends FormExtensionAbility {
       console.error(`${TAG} Failed to fetch course data: ${(err as Error).message}`);
     }
 
+    // 数据处理完成，设置加载状态为 false
     finalIsLoading = false;
 
-    // ★★★ 核心修正 #3：使用接口 IWidgetData 来明确 finalUpdateData 的类型 ★★★
+    // 准备最终要更新到卡片的数据
     const finalUpdateData: IWidgetData = {
       todayText: todayText,
       weekText: '',
@@ -124,6 +129,7 @@ export default class EntryFormAbility extends FormExtensionAbility {
     try {
       console.info(`${TAG} Updating form with final data: ${JSON.stringify(finalUpdateData)}`);
       const formData = formBindingData.createFormBindingData(finalUpdateData);
+      // 使用 formProvider 更新卡片
       await formProvider.updateForm(formId, formData);
       console.info(`${TAG} Form ${formId} updated successfully.`);
     } catch (updateError) {
@@ -133,12 +139,13 @@ export default class EntryFormAbility extends FormExtensionAbility {
     console.info(`${TAG} --- updateFormData END for formId: ${formId} ---`);
   }
 
+  // onUpdateForm 和 onRemoveForm 由系统定时或在特定事件触发
   onUpdateForm(formId: string) {
-    console.info(`onUpdateForm, formId: ${formId}`);
+    console.info(`${TAG} onUpdateForm, formId: ${formId}`);
     this.updateFormData(formId);
   }
 
   onRemoveForm(formId: string) {
-    console.info(`onRemoveForm, formId: ${formId}`);
+    console.info(`${TAG} onRemoveForm, formId: ${formId}`);
   }
 }
