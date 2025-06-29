@@ -4,7 +4,7 @@ import { BusinessError } from '@ohos.base';
 // ★★★ 1. 集中管理后端地址 ★★★
 // 开发时用电脑的IP地址，手机和电脑需要在同一个局域网下
 // 可以在CMD中用 ipconfig 命令查看你电脑的IPv4地址
-const BASE_URL = 'http://192.168.224.147:8080/api'; // <<< 修改为你的电脑IP和端口
+const BASE_URL = 'http://192.168.230.147:8080/api'; // <<< 修改为你的电脑IP和端口
 
 // ★★★ 2. 定义后端返回的数据结构，与后端的ResultUtil对应 ★★★
 interface ApiResponse<T> {

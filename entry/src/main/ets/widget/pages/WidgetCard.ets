@@ -19,9 +19,9 @@ struct WidgetCard {
 
   build() {
     FormLink({
-      action: 'ability',
+      action: 'router',
       bundleName: 'com.sunhao.myapplication',
-      abilityName: 'EntryAbility'
+      abilityName: 'EntryAbility',
     }) {
       Column() {
         Row() {
@@ -58,6 +58,13 @@ struct WidgetCard {
       .height('100%')
       .backgroundColor(Color.White)
       .borderRadius(24)
+      .onClick(()=>{
+        postCardAction(this,{
+          action: 'router',
+          abilityName: 'EntryAbility',
+          params:''
+        })
+      })
     }
   }
 

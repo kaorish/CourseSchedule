@@ -109,9 +109,18 @@ struct MainPage {
 
   build() {
     Tabs({ barPosition: BarPosition.End, controller: this.controller }) {
-      TabContent() { TodaySchedule() }.tabBar(this.TabBuilder('今日', 0, '📚'))
-      TabContent() { Index() }.tabBar(this.TabBuilder('课程表', 1, '📅'))
-      TabContent() { Settings() }.tabBar(this.TabBuilder('设置', 2, '⚙️'))
+      TabContent() {
+        TodaySchedule()
+      }
+      .tabBar(this.TabBuilder('今日课程', 0, $r('app.media.tab_today_selected')))
+
+      TabContent() {
+        Index()
+      }.tabBar(this.TabBuilder("课程表", 1, $r("app.media.tab_course_selected")))
+
+      TabContent() {
+        Settings()
+      }.tabBar(this.TabBuilder("设置", 2, $r("app.media.tab_setting_selected")))
     }
     .onChange((index: number) => { this.currentTabIndex = index; })
     .barWidth('100%')
@@ -121,13 +130,13 @@ struct MainPage {
   }
 
   // 【核心修正】将分割线和背景色精确地应用到 TabBar 上
-  @Builder TabBuilder(title: string, index: number, icon: string) {
+  @Builder TabBuilder(title: string, index: number, icon: Resource) {
     Column() {
       // 顶部分割线
       Divider().strokeWidth(1).color('#E0E0E0')
       // 原有的内容
       Column({ space: 4 }) {
-        Text(icon).fontSize(24)
+        Image(icon).width(25)
         Text(title).fontSize(12).fontColor(this.currentTabIndex === index ? '#007DFF' : '#666666')
       }
       .width('100%')
